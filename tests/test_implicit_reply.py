@@ -48,7 +48,7 @@ class ImplicitReplyTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.history_calls[0]['limit'],1)
         self.assertEqual(self.history_calls[0]['before'].id,100)
         self.assertFalse(self.history_calls[0]['oldest_first'])
-        with patch('reply_bridge.codex_transport.queue',return_value=('submitted','queued','queue-id')) as queue:
+        with patch('reply_bridge.codex_transport.dispatch',return_value=('submitted','queued','queue-id')) as queue:
             await self.bridge.dispatch_pending()
         self.assertEqual(queue.call_args.args[0]['thread_id'],'task-a')
 

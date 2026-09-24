@@ -13,14 +13,14 @@ Codex with that account's existing permissions.
 
 - Windows with PowerShell and Task Scheduler, Python 3.12, and Git.
 - Codex installed and signed in under the same Windows user. `codex --version`
-  and `codex queue --help` must work from PowerShell.
+  must work from PowerShell. Keep the Codex desktop app open to receive replies.
 - A Discord account and a bot application you control.
 - An awake, online PC. Background tasks start at **Windows sign-in**, not before
   login. Captures additionally need an accessible desktop.
 
 Development was tested with Python 3.12 and Codex CLI 0.149.0. This bridge depends
 on local Codex protocol/history details (`state_5.sqlite`,
-`thread_history_1.sqlite`, `session_index.jsonl`, rollout events and `codex queue`).
+`thread_history_1.sqlite`, `session_index.jsonl`, rollout events and the desktop app-tools named-pipe protocol).
 Future Codex versions may require adapter changes. It only reads Codex storage;
 it never modifies those databases. The entire flow has not been verified on a
 fresh second PC. macOS and Linux are not supported by the startup/capture helpers.
@@ -123,7 +123,7 @@ may require your administrator. Do not disable machine-wide security policy.
 
 | Discord input | Behavior |
 | --- | --- |
-| Reply to a task notification/question/answer | Queue text in that exact task |
+| Reply to a task notification/question/answer | Send text directly to that task; steer it while active |
 | Message immediately after this bot's task message | Continue that task without using Discord Reply |
 | `!usage` or `!u` | Remaining account allowance and reset times; Spark hidden |
 | `!jobs` | Latest local saved in-progress tasks, with stale records separated |
@@ -151,8 +151,11 @@ of using near-identical shades. Red is reserved for errors.
 
 Required conversational questions can be answered in Discord. Native approval,
 credential, and blocking desktop dialogs still require action in Codex. A Discord
-reply cannot approve those dialogs. Active tasks receive queued follow-ups as
-subsequent turns, not guaranteed immediate steering. Uncertain dispatches are
+reply cannot approve those dialogs. Replies go through the running desktop app: active tasks receive live steering,
+and idle tasks start a follow-up turn. Delivery is immediate at the next supported
+processing point; a running tool may still need to finish. If the app is closed,
+the bridge retains the reply and retries when it opens. It does not silently
+fall back to queuing behind an active turn. Uncertain dispatches are
 not automatically retried, to avoid sending work twice.
 
 Media uploads target 9 MiB, with smaller retries if Discord rejects them. Incoming

@@ -1,17 +1,16 @@
-"""Codex queue transport. Local SQLite is used read-only for identity checks."""
+"""Codex live app transport. Local SQLite is used read-only for identity checks."""
 from __future__ import annotations
 
 import os
 import json
-import re
 import shutil
 import sqlite3
-import subprocess
+import app_transport
 from contextlib import closing
 from pathlib import Path
 from uuid import UUID
 
-HIDDEN = getattr(subprocess, 'CREATE_NO_WINDOW', 0)
+HIDDEN = app_transport.HIDDEN
 CODEX_HOME = Path(os.environ.get('CODEX_HOME', str(Path.home() / '.codex')))
 
 
@@ -39,7 +38,7 @@ def lookup_thread(thread_id):
         return dict(row) if row else None
 
 
-def queue(row):
+def dispatch(row):
     try:
         thread = lookup_thread(row['thread_id'])
     except (sqlite3.Error, OSError):
@@ -78,19 +77,4 @@ def queue(row):
             'before answering about its contents. Do not infer contents from filenames. '
             'If viewing fails, say so rather than guessing. The paths are:\n' +
             '\n'.join(str(Path(p).resolve()) for p in images))
-    try:
-        command = [executable(), 'queue', '--thread', row['thread_id'], '--message', prompt]
-        result = subprocess.run(command, cwd=thread['cwd'], capture_output=True,
-            text=True, encoding='utf-8', errors='replace', timeout=40, creationflags=HIDDEN)
-    except FileNotFoundError:
-        return 'pending', 'Codex CLI is unavailable; the reply is saved for retry.', None
-    except subprocess.TimeoutExpired:
-        return 'uncertain', 'Codex did not confirm receipt. Check the task before resending this reply.', None
-    except OSError:
-        return 'pending', 'Could not start Codex; the reply is saved for retry.', None
-    match = re.search(r'Queued message ([0-9a-f-]+) for thread ([0-9a-f-]+)\.', result.stdout)
-    if result.returncode == 0 and match and match[2] == row['thread_id']:
-        return 'submitted', 'Queued in the original Codex task. It will run when the task is available.', match[1]
-    # Do not infer non-delivery from an arbitrary error/exit. Transport failures
-    # can happen after acceptance, so uncertain outcomes never auto-retry.
-    return 'uncertain', 'Codex did not confirm receipt. Check the task before resending this reply.', None
+    return app_transport.deliver(row['thread_id'], prompt)

@@ -13,7 +13,7 @@ switch ($Action) {
         $trigger = New-ScheduledTaskTrigger -AtLogOn -User $identity
         $principal = New-ScheduledTaskPrincipal -UserId $identity -LogonType Interactive -RunLevel Limited
         $settings = New-ScheduledTaskSettingsSet -RestartCount 999 -RestartInterval (New-TimeSpan -Minutes 1) -ExecutionTimeLimit ([TimeSpan]::Zero) -MultipleInstances IgnoreNew -StartWhenAvailable -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
-        Register-ScheduledTask -TaskName $taskName -Action $taskAction -Trigger $trigger -Principal $principal -Settings $settings -Description 'Receives Discord replies and queues them into their original Codex tasks. Runs after user sign-in.' -Force | Out-Null
+        Register-ScheduledTask -TaskName $taskName -Action $taskAction -Trigger $trigger -Principal $principal -Settings $settings -Description 'Delivers Discord replies directly to their original Codex tasks, steering active work. Runs after user sign-in.' -Force | Out-Null
         $watchdogAction = New-ScheduledTaskAction -Execute $pythonPath -Argument ('"' + (Join-Path $bridgeRoot 'health_watchdog.py') + '"') -WorkingDirectory $bridgeRoot
         Register-ScheduledTask -TaskName $watchdogName -Action $watchdogAction -Trigger $trigger -Principal $principal -Settings $settings -Description 'Independent Discord bridge health alerts after sign-in.' -Force | Out-Null
         Start-ScheduledTask -TaskName $taskName

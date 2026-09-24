@@ -83,14 +83,11 @@ class MediaTests(unittest.TestCase):
         path=self.root/'image.png'; Image.new('RGB',(5,5)).save(path)
         tid='22222222-2222-4222-8222-222222222222'
         row={'thread_id':tid,'message_id':'1','text':'inspect','images_json':json.dumps([str(path)])}
-        result=NS(returncode=0,stdout='Queued message aaa for thread '+tid+'.')
         with patch.object(codex_transport,'lookup_thread',return_value={'cwd':str(self.root),'archived':0}), \
-             patch.object(codex_transport,'executable',return_value='codex.exe'), \
-             patch.object(codex_transport.subprocess,'run',return_value=result) as run:
-            self.assertEqual(codex_transport.queue(row)[0],'submitted')
-        self.assertNotIn('--image',run.call_args.args[0])
-        self.assertIn(str(path.resolve()),run.call_args.args[0][-1])
-        self.assertIn('Open each image using view_image',run.call_args.args[0][-1])
+             patch('app_transport.deliver',return_value=('submitted','sent',None)) as deliver:
+            self.assertEqual(codex_transport.dispatch(row)[0],'submitted')
+        self.assertIn(str(path.resolve()),deliver.call_args.args[1])
+        self.assertIn('Open each image using view_image',deliver.call_args.args[1])
 
     def test_managed_output_does_not_allow_arbitrary_file_upload(self):
         file=self.root/'secret.txt'; file.write_text('private')

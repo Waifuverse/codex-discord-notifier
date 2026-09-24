@@ -55,7 +55,7 @@ def classify(record):
             text = question_text(args)
             if text:
                 if name.endswith('_async'):
-                    return 'question', text + '\n\nReply here with your answer; it will be queued into this task.', 'queue'
+                    return 'question', text + '\n\nReply here with your answer; it will be sent directly to this task, steering its active turn.', 'queue'
                 return 'desktop', text + '\n\nThis question is waiting in a native Codex dialog. Please answer it in Codex.', 'desktop'
         if name == 'request_permissions':
             return 'desktop', 'Codex is requesting additional permissions. Review the exact request in Codex.', 'desktop'

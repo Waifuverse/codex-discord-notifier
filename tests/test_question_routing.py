@@ -55,7 +55,7 @@ class QuestionRoutingTests(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn('blue for the car',by_id['201']['text'])
         self.assertEqual(by_id['202']['thread_id'],TASK_A)
         self.assertIn('Use blue for the car?',by_id['202']['text'])
-        with patch('reply_bridge.codex_transport.queue',return_value=('submitted','queued','queue-id')) as queue:
+        with patch('reply_bridge.codex_transport.dispatch',return_value=('submitted','queued','queue-id')) as queue:
             await self.bridge.dispatch_pending()
         self.assertEqual({c.args[0]['thread_id'] for c in queue.call_args_list},{TASK_A,TASK_B})
         wrong={'thread-id':TASK_A,'turn-id':'turn-b','input-messages':['[Discord reply 201]'],

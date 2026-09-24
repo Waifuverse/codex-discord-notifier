@@ -233,10 +233,10 @@ class Bridge(discord.Client):
                 continue
             self.store.update(row['message_id'], 'dispatching')
             try:
-                state, explanation, queue_id = await asyncio.to_thread(codex_transport.queue, row)
+                state, explanation, queue_id = await asyncio.to_thread(codex_transport.dispatch, row)
             except Exception:
                 state, explanation, queue_id = 'uncertain', 'Delivery could not be confirmed. Check the Codex task before resending.', None
-            # A very fast turn may finish via the hook before queue() returns.
+            # A very fast turn may finish via the hook before dispatch() returns.
             attempts = row['attempts'] + 1
             updated=self.store.finish_dispatch(row['message_id'],state,queue_id,attempts,
                 time.time() + min(300, 5 * 2 ** min(attempts, 6)))
@@ -378,6 +378,7 @@ class Bridge(discord.Client):
     async def run_worker(self):
         await self.wait_until_ready()
         while not self.is_closed():
+            self.wake.clear()
             try:
                 if self.is_ready() and self.destination:
                     await self.catch_up()
@@ -401,7 +402,6 @@ class Bridge(discord.Client):
             except Exception as exc:
                 # No tokens, request bodies, or user message contents in logs.
                 LOG.error('Worker iteration failed: %s', type(exc).__name__)
-            self.wake.clear()
             try:
                 await asyncio.wait_for(self.wake.wait(), timeout=10)
             except asyncio.TimeoutError:

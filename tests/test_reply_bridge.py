@@ -93,27 +93,18 @@ class TransportTests(unittest.TestCase):
     def test_argument_array_preserves_shell_metacharacters(self):
         text = 'hello $(whoami) `test` ; & "quotes"\nnext line'
         row = dict(ROUTE, message_id='100', text=text)
-        result = NS(returncode=0,stdout='Queued message aaaa-bbbb for thread '+TID+'.',stderr='')
         with patch.object(codex_transport, 'lookup_thread', return_value={'cwd':'.','archived':0}), \
-             patch.object(codex_transport, 'executable', return_value='codex.exe'), \
-             patch.object(codex_transport.subprocess, 'run', return_value=result) as run:
-            state, _, queue_id = codex_transport.queue(row)
+             patch('app_transport.deliver', return_value=('submitted','sent',None)) as deliver:
+            state, _, _ = codex_transport.dispatch(row)
         self.assertEqual(state, 'submitted')
-        self.assertEqual(queue_id, 'aaaa-bbbb')
-        self.assertTrue(run.call_args.args[0][-1].startswith('[Discord reply 100]\n'+text+'\n\n'))
-        self.assertNotIn('shell', run.call_args.kwargs)
+        self.assertEqual(deliver.call_args.args[0], TID)
+        self.assertTrue(deliver.call_args.args[1].startswith('[Discord reply 100]\n'+text+'\n\n'))
 
-    def test_timeout_is_uncertain_not_retryable(self):
-        with patch.object(codex_transport, 'lookup_thread', return_value={'cwd':'.','archived':0}), \
-             patch.object(codex_transport, 'executable', return_value='codex.exe'), \
-             patch.object(codex_transport.subprocess, 'run', side_effect=codex_transport.subprocess.TimeoutExpired('codex',40)):
-            self.assertEqual(codex_transport.queue(dict(ROUTE,message_id='100',text='hello'))[0], 'uncertain')
-
-    def test_missing_task_does_not_run_codex(self):
+    def test_missing_task_does_not_send(self):
         with patch.object(codex_transport, 'lookup_thread', return_value=None), \
-             patch.object(codex_transport.subprocess, 'run') as run:
-            self.assertEqual(codex_transport.queue(dict(ROUTE,message_id='100',text='hello'))[0], 'failed')
-        run.assert_not_called()
+             patch('app_transport.deliver') as deliver:
+            self.assertEqual(codex_transport.dispatch(dict(ROUTE,message_id='100',text='hello'))[0], 'failed')
+        deliver.assert_not_called()
 
 
 class ListenerTests(unittest.IsolatedAsyncioTestCase):
@@ -223,7 +214,7 @@ class ListenerTests(unittest.IsolatedAsyncioTestCase):
     async def test_dispatch_restart_does_not_resend_uncertain(self):
         self.store.enqueue('100','2',ROUTE,'hello')
         self.store.update('100','uncertain')
-        with patch.object(codex_transport,'queue') as queue:
+        with patch.object(codex_transport,'dispatch') as queue:
             await self.bridge.dispatch_pending()
         queue.assert_not_called()
 

@@ -7,6 +7,7 @@ hook's transactional claim and retrying outbox.
 """
 import hashlib
 import json
+import re
 import sqlite3
 import time
 from contextlib import closing
@@ -27,6 +28,18 @@ def observe(state, record, thread):
     if kind == 'event_msg' and p.get('type') == 'task_started':
         state.update(turn=p.get('turn_id'), inputs=[])
     text = None
+    # App steering is recorded as a named tool delivery, not a user_message.
+    # Accept only the app's exact envelope for this same task; arbitrary tool
+    # output and quoted Discord markers remain non-authoritative.
+    if kind == 'event_msg' and p.get('type') == 'item_completed':
+        item = p.get('item') or {}
+        if (p.get('thread_id') == thread['id'] and item.get('type') == 'FunctionCallOutput'
+                and item.get('namespace') == 'codex_app'
+                and item.get('name') == 'send_message_to_thread'):
+            match = re.fullmatch(r'<codex_delegation>\s*<source_thread_id>([^<]+)</source_thread_id>\s*<input>(.*)</input>\s*</codex_delegation>',
+                                 item.get('output', ''), re.S)
+            if match and match[1] == thread['id']:
+                text = match[2]
     if kind == 'event_msg' and p.get('type') == 'user_message':
         text = p.get('message')
     elif kind == 'response_item' and p.get('type') == 'message' and p.get('role') == 'user':
